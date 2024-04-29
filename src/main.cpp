@@ -175,10 +175,10 @@ void loop() {
     digitalWrite(ledPin, LOW);
 
   long distance = calculateDistance();
-  if(validateData() || Motor_State)
+  if(validateData() || Motor_State)// for now Motor_State always set to false
   {
-    currDistance = distance;
     prevDistance = currDistance;
+    currDistance = distance;
   }
   Serial.print("Distance: ");
   Serial.print(currDistance);
