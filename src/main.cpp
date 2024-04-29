@@ -62,6 +62,7 @@ unsigned long getTime() {
   return timeClient.getEpochTime() + 19800; // Add 5 hours 30 minutes in seconds for IST
 }
 
+
 long calculateDistance()
 {
   long duration, distance;
@@ -76,15 +77,17 @@ long calculateDistance()
   return distance;
 }
 
-void calibrateInitialData()
+void calibrateInitialData(int level)
 {
   long sum = 0;
-  for(int i=0;i<20;i++)
+  for(int i=0;i<level;i++)
   {
     sum+= calculateDistance();
+    Serial.print("calibrating dataset level:");
+    Serial.println(level);
   }
-  currDistance = sum/20;
-  prevDistance = sum/20;
+  currDistance = sum/level;
+  prevDistance = sum/level;
 }
 
 void setup() {
@@ -119,7 +122,7 @@ void setup() {
   Serial.println("User: " + userName);
   Serial.print("Delay Value: ");
   Serial.println(delayValue);
-  calibrateInitialData();
+  calibrateInitialData(20);
 }
 
 bool checkInternetConnection() {
@@ -180,6 +183,7 @@ void sendDataCloud(FirebaseJson json,long timestamp)
 void loop() {
 
   static int flag_Power_ON = 1;
+  static int flag_Error_Count = 1;
 
   if (checkInternetConnection())
     digitalWrite(ledPin, HIGH);
@@ -187,10 +191,21 @@ void loop() {
     digitalWrite(ledPin, LOW);
 
   long distance = calculateDistance();
+
+  // if Motor is ON , consider all data as valid //Critical decision
   if(validateData() || Motor_State)// for now Motor_State always set to false
   {
     prevDistance = currDistance;
     currDistance = distance;
+  }
+  else{
+    Serial.println("Error data!");
+    flag_Error_Count++;
+    if(flag_Error_Count>10)
+    {
+      calibrateInitialData(5);//May get stuck at a point if error is bouncing --> calibrating with  5 dataset
+      flag_Error_Count = 1;//Reset error count
+    }
   }
   Serial.print("Distance: ");
   Serial.print(currDistance);
