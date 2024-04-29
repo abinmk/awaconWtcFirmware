@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../../../../Desktop/ESP"
+		},
+		{
+			"name": "240227-232156-esp12e",
+			"path": "."
+		},
+		{
+			"name": "ESP-SDK",
+			"path": "../ESP-SDK"
+		}
+	],
+	"settings": {}
+}
