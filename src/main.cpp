@@ -62,6 +62,31 @@ unsigned long getTime() {
   return timeClient.getEpochTime() + 19800; // Add 5 hours 30 minutes in seconds for IST
 }
 
+long calculateDistance()
+{
+  long duration, distance;
+  delay(1000);
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = duration * 0.034 / 2; // Speed of sound is 34 cm/ms
+  return distance;
+}
+
+void calibrateInitialData()
+{
+  long sum = 0;
+  for(int i=0;i<20;i++)
+  {
+    sum+= calculateDistance();
+  }
+  currDistance = sum/20;
+  prevDistance = sum/20;
+}
+
 void setup() {
   Serial.begin(9600);
   pinMode(trigPin, OUTPUT);
@@ -94,6 +119,7 @@ void setup() {
   Serial.println("User: " + userName);
   Serial.print("Delay Value: ");
   Serial.println(delayValue);
+  calibrateInitialData();
 }
 
 bool checkInternetConnection() {
@@ -103,20 +129,6 @@ bool checkInternetConnection() {
   }
   client.stop();
   return true;
-}
-
-long calculateDistance()
-{
-  long duration, distance;
-  delay(1000);
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  duration = pulseIn(echoPin, HIGH);
-  distance = duration * 0.034 / 2; // Speed of sound is 34 cm/ms
-  return distance;
 }
 
 bool validateData()
