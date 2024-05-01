@@ -30,6 +30,8 @@ int high_err_count = 0;
 int distance = 0;
 int currDistance = 0;
 int prevDistance = 0;
+
+int flag_Power_ON = 1;
 bool Motor_State = false;
 
 FirebaseAuth auth;
@@ -132,9 +134,11 @@ void setup() {
 bool checkInternetConnection() {
   WiFiClient client;
   if (!client.connect("www.google.com", 80)) {
+    digitalWrite(ledPin, HIGH);
     return false;
   }
   client.stop();
+  digitalWrite(ledPin, LOW);
   return true;
 }
 
@@ -227,40 +231,30 @@ void processData()
   Serial.println(" cm");
 
 }
-
-void loop() {
-
-  static int flag_Power_ON = 1;
-
-  if (checkInternetConnection())
-    digitalWrite(ledPin, HIGH);
-  else
-    digitalWrite(ledPin, LOW);
-
-  processData();//validate and update sensor data
-
+void checkFirebaseDataUpdate()
+{
   if (Firebase.ready() && (millis() - sendDataPrevMillis > delayValue || sendDataPrevMillis == 0)) {
+    FirebaseJson json;
     sendDataPrevMillis = millis();
+    unsigned long timestamp = getTime();// Get current time
 
-    // Get current time
-    unsigned long timestamp = getTime();
+    //wait for valid timestamp
     while (timestamp < 30000) {
       timestamp = getTime();
       Serial.println("Timestamp calibration..");
     }
 
-    FirebaseJson json;
-    if(flag_Power_ON!=1)
-    {
-      json = setJSON(String(currDistance),timestamp);
-    }
-    else
-    {
-      json = setJSON("ERR_PWR",timestamp);
-      flag_Power_ON = 0;
-    }
+    //Set json with valid sensor data or ERR_PWR data with timestamp   
+    (flag_Power_ON!=1)?json = setJSON(String(currDistance),timestamp):json = setJSON("ERR_PWR",timestamp);
+    flag_Power_ON = 0;
     sendDataCloud(json,timestamp);
   }
+}
+
+void loop() {
+  checkInternetConnection();//data communication error
+  processData();//validate and update sensor data
+  checkFirebaseDataUpdate();//check if firebase availability and send data to cloud
 }
 
 
