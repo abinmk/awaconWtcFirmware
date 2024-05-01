@@ -134,11 +134,11 @@ void setup() {
 bool checkInternetConnection() {
   WiFiClient client;
   if (!client.connect("www.google.com", 80)) {
-    digitalWrite(ledPin, HIGH);
+    digitalWrite(ledPin, LOW);
     return false;
   }
   client.stop();
-  digitalWrite(ledPin, LOW);
+  digitalWrite(ledPin, HIGH);
   return true;
 }
 
