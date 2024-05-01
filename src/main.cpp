@@ -24,6 +24,10 @@ const int trigPin = D7; // Trig Pin of SR04 connected to D7 (GPIO13)
 const int echoPin = D8; // Echo Pin of SR04 connected to D8 (GPIO15)
 const int ledPin = D4;  // D1 corresponds to GPIO5 on ESP8266
 
+int level = 5;
+int variation = 0;
+int high_err_count = 0;
+int distance = 0;
 int currDistance = 0;
 int prevDistance = 0;
 bool Motor_State = false;
@@ -77,17 +81,17 @@ long calculateDistance()
   return distance;
 }
 
-void calibrateInitialData(int level)
+void calibrateInitialData(int levelVal)
 {
   long sum = 0;
-  for(int i=0;i<level;i++)
+  for(int i=0;i<levelVal;i++)
   {
     sum+= calculateDistance();
     Serial.print("calibrating dataset level:");
-    Serial.println(level);
+    Serial.println(levelVal);
   }
-  currDistance = sum/level;
-  prevDistance = sum/level;
+  currDistance = sum/levelVal;
+  prevDistance = sum/levelVal;
 }
 
 void setup() {
@@ -134,9 +138,10 @@ bool checkInternetConnection() {
   return true;
 }
 
-bool validateData()
+bool validateData(int levelVal)
 {
-  if(abs(currDistance-prevDistance) < 5)
+  variation = abs(distance-prevDistance);
+  if(abs(distance-prevDistance) <= levelVal)
   return true;
 
   return false;
@@ -180,36 +185,59 @@ void sendDataCloud(FirebaseJson json,long timestamp)
     }
 }
 
+void processData()
+{
+  distance = calculateDistance();
+  if(validateData(level) || Motor_State)// for now Motor_State always set to false
+  {
+    high_err_count = 0;
+    prevDistance = currDistance;
+    currDistance = distance;
+  }
+  else{
+    Serial.print("Error data! --> ");
+    Serial.print(distance);
+    Serial.println(" cm");
+    Serial.print("Data variation! --> ");
+    Serial.print(variation);
+    Serial.println(" cm");
+    if(validateData(level+5))
+    {
+      prevDistance = distance;
+    }
+    else if(variation>10)
+    {
+      high_err_count++;
+      if(high_err_count>=2)
+      {
+        Serial.print("High Error data! --> ");
+        Serial.print(distance);
+        Serial.println(" cm");
+        Serial.print("Data variation! --> ");
+        Serial.print(variation);
+        Serial.println(" cm");
+        //Motor off wait for calibration
+        //Rare chance
+        calibrateInitialData(3);
+      }
+    }
+  }
+  Serial.print("Distance: ");
+  Serial.print(currDistance);
+  Serial.println(" cm");
+
+}
+
 void loop() {
 
   static int flag_Power_ON = 1;
-  static int flag_Error_Count = 1;
 
   if (checkInternetConnection())
     digitalWrite(ledPin, HIGH);
   else
     digitalWrite(ledPin, LOW);
 
-  long distance = calculateDistance();
-
-  // if Motor is ON , consider all data as valid //Critical decision
-  if(validateData() || Motor_State)// for now Motor_State always set to false
-  {
-    prevDistance = currDistance;
-    currDistance = distance;
-  }
-  else{
-    Serial.println("Error data!");
-    flag_Error_Count++;
-    if(flag_Error_Count>10)
-    {
-      calibrateInitialData(5);//May get stuck at a point if error is bouncing --> calibrating with  5 dataset
-      flag_Error_Count = 1;//Reset error count
-    }
-  }
-  Serial.print("Distance: ");
-  Serial.print(currDistance);
-  Serial.println(" cm");
+  processData();//validate and update sensor data
 
   if (Firebase.ready() && (millis() - sendDataPrevMillis > delayValue || sendDataPrevMillis == 0)) {
     sendDataPrevMillis = millis();
@@ -218,6 +246,7 @@ void loop() {
     unsigned long timestamp = getTime();
     while (timestamp < 30000) {
       timestamp = getTime();
+      Serial.println("Timestamp calibration..");
     }
 
     FirebaseJson json;
